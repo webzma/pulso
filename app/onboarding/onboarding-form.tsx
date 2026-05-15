@@ -85,16 +85,8 @@ export function OnboardingForm() {
 
       if (tErr || !tenant) throw tErr ?? new Error("No se pudo crear el comercio")
 
-      // Insert owner as member
-      const { error: mErr } = await supabase.from("tenant_members").insert({
-        tenant_id: tenant.id,
-        user_id: user.id,
-        display_name: (user.user_metadata?.full_name as string | undefined) ?? "Dueño",
-        role: "owner",
-        commission_percentage: 0,
-        active: true,
-      })
-      if (mErr) throw mErr
+      // La membresía del owner la crea un trigger en la base de datos
+      // (handle_new_tenant), así que no necesitamos insertarla aquí.
 
       router.push("/dashboard")
       router.refresh()
