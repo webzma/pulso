@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { ServicesManager } from "./services-manager"
+import { PageHeader } from "../_components/page-header"
 
 export default async function ServicesPage() {
   const supabase = await createClient()
@@ -21,14 +22,11 @@ export default async function ServicesPage() {
     .order("created_at", { ascending: false })
 
   return (
-    <div>
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Servicios y planes</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Lo que tus clientes pueden reservar desde tu URL pública.
-        </p>
-      </header>
-
+    <div className="mx-auto max-w-5xl">
+      <PageHeader
+        title="Servicios y planes"
+        description="Lo que tus clientes pueden reservar desde tu URL pública. Define duración, precio y disponibilidad."
+      />
       <ServicesManager tenantId={tenant!.id} initialServices={services ?? []} />
     </div>
   )

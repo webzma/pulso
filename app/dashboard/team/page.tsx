@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { TeamManager } from "./team-manager"
+import { PageHeader } from "../_components/page-header"
 
 export default async function TeamPage() {
   const supabase = await createClient()
@@ -21,13 +22,11 @@ export default async function TeamPage() {
     .order("created_at", { ascending: true })
 
   return (
-    <div>
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Equipo</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Entrenadores y staff. Su porcentaje aplica a cada cita que completen.
-        </p>
-      </header>
+    <div className="mx-auto max-w-5xl">
+      <PageHeader
+        title="Equipo"
+        description="Entrenadores y staff de tu gimnasio. Su porcentaje aplica a cada cita que completen."
+      />
       <TeamManager tenantId={tenant!.id} initialMembers={members ?? []} />
     </div>
   )

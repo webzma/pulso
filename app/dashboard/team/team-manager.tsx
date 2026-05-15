@@ -8,8 +8,25 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
+import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Pencil, Trash2, X, Crown, User } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { Plus, Pencil, Trash2, Crown, MoreHorizontal, PowerOff, Users } from "lucide-react"
 
 type Member = {
   id: string
@@ -21,11 +38,35 @@ type Member = {
   created_at: string
 }
 
+const ROLE_LABEL: Record<Member["role"], string> = {
+  owner: "Dueño",
+  admin: "Admin",
+  staff: "Entrenador",
+}
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase()
+}
+
 export function TeamManager({ tenantId, initialMembers }: { tenantId: string; initialMembers: Member[] }) {
   const router = useRouter()
   const [members, setMembers] = useState<Member[]>(initialMembers)
   const [editing, setEditing] = useState<Member | null>(null)
-  const [creating, setCreating] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+
+  function openNew() {
+    setEditing(null)
+    setDialogOpen(true)
+  }
+  function openEdit(m: Member) {
+    setEditing(m)
+    setDialogOpen(true)
+  }
 
   function onSaved(m: Member) {
     setMembers((prev) => {
@@ -37,8 +78,8 @@ export function TeamManager({ tenantId, initialMembers }: { tenantId: string; in
       }
       return [...prev, m]
     })
+    setDialogOpen(false)
     setEditing(null)
-    setCreating(false)
     router.refresh()
   }
 
@@ -64,74 +105,170 @@ export function TeamManager({ tenantId, initialMembers }: { tenantId: string; in
     }
   }
 
+  const staffCount = members.filter((m) => m.role !== "owner").length
+
   return (
-    <div className="space-y-6">
-      {!creating && !editing && (
-        <Button onClick={() => setCreating(true)} className="w-full sm:w-auto">
-          <Plus className="mr-2 h-4 w-4" />
+    <>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">{staffCount}</span> entrenador{staffCount === 1 ? "" : "es"} ·{" "}
+          {members.filter((m) => m.active).length} activo{members.filter((m) => m.active).length === 1 ? "" : "s"}
+        </div>
+        <Button onClick={openNew}>
+          <Plus />
           Agregar miembro
         </Button>
-      )}
+      </div>
 
-      {(creating || editing) && (
-        <MemberForm
-          tenantId={tenantId}
-          initial={editing}
-          onSaved={onSaved}
-          onCancel={() => {
-            setCreating(false)
-            setEditing(null)
-          }}
-        />
-      )}
+      {staffCount === 0 ? (
+        <Empty className="border bg-card">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Users />
+            </EmptyMedia>
+            <EmptyTitle>Aún no tienes entrenadores</EmptyTitle>
+            <EmptyDescription>
+              Agrega a las personas que atienden citas en tu gimnasio. Configurarás su porcentaje de comisión y aparecerán
+              como opciones al reservar.
+            </EmptyDescription>
+          </EmptyHeader>
+          <Button onClick={openNew}>
+            <Plus />
+            Agregar entrenador
+          </Button>
+        </Empty>
+      ) : null}
 
-      <ul className="grid gap-3">
-        {members.map((m) => (
-          <li key={m.id}>
-            <Card className={m.active ? "" : "opacity-60"}>
-              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-foreground">
-                    {m.role === "owner" ? <Crown className="h-4 w-4" /> : <User className="h-4 w-4" />}
-                  </span>
-                  <div>
-                    <p className="font-medium tracking-tight">{m.display_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {m.role === "owner" ? "Dueño" : m.role === "admin" ? "Admin" : "Staff"} ·{" "}
-                      {Number(m.commission_percentage).toFixed(2)}% de comisión
+      {members.length > 0 && (
+        <ul className="grid gap-3">
+          {members.map((m) => (
+            <li key={m.id}>
+              <Card
+                className={`group transition-colors hover:border-foreground/20 ${
+                  m.active ? "" : "opacity-70"
+                }`}
+              >
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="relative flex size-11 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-foreground">
+                    {initials(m.display_name)}
+                    {m.role === "owner" && (
+                      <span className="absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                        <Crown className="size-3" />
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <p className="truncate font-semibold tracking-tight">{m.display_name}</p>
+                      <Badge variant={m.role === "owner" ? "default" : "secondary"} className="text-[10px] uppercase">
+                        {ROLE_LABEL[m.role]}
+                      </Badge>
+                      {!m.active && (
+                        <Badge variant="outline" className="text-[10px] uppercase text-muted-foreground">
+                          Inactivo
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {m.role === "owner" ? (
+                        "Acceso completo al dashboard"
+                      ) : (
+                        <>
+                          Comisión{" "}
+                          <span className="font-mono font-semibold text-foreground">
+                            {Number(m.commission_percentage).toFixed(0)}%
+                          </span>{" "}
+                          por cita completada
+                        </>
+                      )}
                     </p>
                   </div>
-                </div>
-                <div className="ml-auto flex items-center gap-2 sm:gap-3">
-                  {m.role !== "owner" && (
-                    <>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Switch checked={m.active} onCheckedChange={() => toggleActive(m)} aria-label="Activo" />
-                        <span>{m.active ? "Activo" : "Inactivo"}</span>
-                      </div>
-                      <Button size="icon" variant="ghost" onClick={() => setEditing(m)}>
-                        <Pencil className="h-4 w-4" />
-                        <span className="sr-only">Editar</span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                      >
+                        <MoreHorizontal className="size-4" />
+                        <span className="sr-only">Acciones</span>
                       </Button>
-                      <Button size="icon" variant="ghost" onClick={() => remove(m)}>
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Eliminar</span>
-                      </Button>
-                    </>
-                  )}
-                  {m.role === "owner" && (
-                    <Button size="icon" variant="ghost" onClick={() => setEditing(m)}>
-                      <Pencil className="h-4 w-4" />
-                      <span className="sr-only">Editar</span>
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </li>
-        ))}
-      </ul>
-    </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => openEdit(m)}>
+                        <Pencil className="mr-2 size-4" /> Editar
+                      </DropdownMenuItem>
+                      {m.role !== "owner" && (
+                        <DropdownMenuItem onClick={() => toggleActive(m)}>
+                          <PowerOff className="mr-2 size-4" />
+                          {m.active ? "Desactivar" : "Activar"}
+                        </DropdownMenuItem>
+                      )}
+                      {m.role !== "owner" && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => remove(m)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 size-4" /> Eliminar
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </CardContent>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <MemberDialog
+        open={dialogOpen}
+        onOpenChange={(o) => {
+          setDialogOpen(o)
+          if (!o) setEditing(null)
+        }}
+        tenantId={tenantId}
+        initial={editing}
+        onSaved={onSaved}
+      />
+    </>
+  )
+}
+
+function MemberDialog({
+  open,
+  onOpenChange,
+  tenantId,
+  initial,
+  onSaved,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  tenantId: string
+  initial: Member | null
+  onSaved: (m: Member) => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{initial ? "Editar miembro" : "Nuevo miembro del equipo"}</DialogTitle>
+          <DialogDescription>
+            Configura cómo aparecerá en las reservas y su porcentaje de comisión.
+          </DialogDescription>
+        </DialogHeader>
+        <MemberForm
+          key={initial?.id ?? "new"}
+          tenantId={tenantId}
+          initial={initial}
+          onSaved={onSaved}
+          onCancel={() => onOpenChange(false)}
+        />
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -193,80 +330,74 @@ function MemberForm({
   const isOwner = initial?.role === "owner"
 
   return (
-    <Card>
-      <CardContent className="p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold tracking-tight">
-            {initial ? "Editar miembro" : "Nuevo miembro del equipo"}
-          </h2>
-          <Button size="icon" variant="ghost" onClick={onCancel} type="button">
-            <X className="h-4 w-4" />
-            <span className="sr-only">Cerrar</span>
-          </Button>
+    <form onSubmit={submit} className="grid gap-4">
+      <div className="grid gap-2">
+        <Label htmlFor="m-name">Nombre visible</Label>
+        <Input
+          id="m-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Carlos Pérez"
+          required
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-2">
+          <Label htmlFor="m-role">Rol</Label>
+          <Select
+            value={role}
+            onValueChange={(v) => setRole(v as "owner" | "admin" | "staff")}
+            disabled={isOwner}
+          >
+            <SelectTrigger id="m-role">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {isOwner && <SelectItem value="owner">Dueño</SelectItem>}
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="staff">Entrenador</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <form onSubmit={submit} className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="m-name">Nombre visible</Label>
+        <div className="grid gap-2">
+          <Label htmlFor="m-pct">Comisión</Label>
+          <div className="relative">
             <Input
-              id="m-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Carlos Pérez"
-              required
+              id="m-pct"
+              type="number"
+              min={0}
+              max={100}
+              step="0.5"
+              value={pct}
+              onChange={(e) => setPct(e.target.value)}
+              className="pr-7 font-mono"
             />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="m-role">Rol</Label>
-              <Select
-                value={role}
-                onValueChange={(v) => setRole(v as "owner" | "admin" | "staff")}
-                disabled={isOwner}
-              >
-                <SelectTrigger id="m-role">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {isOwner && <SelectItem value="owner">Dueño</SelectItem>}
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="staff">Staff / entrenador</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="m-pct">Comisión %</Label>
-              <Input
-                id="m-pct"
-                type="number"
-                min={0}
-                max={100}
-                step="0.5"
-                value={pct}
-                onChange={(e) => setPct(e.target.value)}
-              />
-            </div>
+        </div>
+      </div>
+      {!isOwner && (
+        <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-3">
+          <div>
+            <p className="text-sm font-medium">Activo</p>
+            <p className="text-xs text-muted-foreground">Visible al reservar y para asignar citas</p>
           </div>
-          {!isOwner && (
-            <label className="flex items-center gap-2 text-sm">
-              <Switch checked={active} onCheckedChange={setActive} />
-              Activo (visible para reservas)
-            </label>
-          )}
-          {err && (
-            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {err}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={onCancel}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={busy}>
-              {busy ? "Guardando..." : "Guardar"}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+          <Switch checked={active} onCheckedChange={setActive} />
+        </div>
+      )}
+      {err && (
+        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {err}
+        </p>
+      )}
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={onCancel}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={busy}>
+          {busy ? "Guardando..." : initial ? "Guardar cambios" : "Agregar al equipo"}
+        </Button>
+      </DialogFooter>
+    </form>
   )
 }

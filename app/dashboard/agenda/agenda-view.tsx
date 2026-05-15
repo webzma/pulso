@@ -14,9 +14,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import {
   ChevronLeft,
   ChevronRight,
@@ -25,13 +33,17 @@ import {
   Check,
   X as XIcon,
   Wallet,
-  Clock,
   Plus,
   Trash2,
   MessageCircle,
+  MoreVertical,
+  CalendarDays,
 } from "lucide-react"
 import { formatUsd, usdToVef, vefToUsd } from "@/lib/exchange-rate"
 import { toWhatsappNumber } from "@/lib/phone"
+import { PageHeader } from "../_components/page-header"
+import { KpiCard } from "../_components/kpi-card"
+import { cn } from "@/lib/utils"
 
 type Appointment = {
   id: string
@@ -141,59 +153,91 @@ export function AgendaView({
     })
   }, [date])
 
+  const isToday = useMemo(() => {
+    const today = new Date()
+    const yyyy = today.getFullYear()
+    const mm = String(today.getMonth() + 1).padStart(2, "0")
+    const dd = String(today.getDate()).padStart(2, "0")
+    return `${yyyy}-${mm}-${dd}` === date
+  }, [date])
+
   const totals = useMemo(() => {
     let count = 0
     let revenue = 0
     let pending = 0
+    let completed = 0
     for (const a of appts) {
       if (a.status !== "cancelled" && a.status !== "no_show") count++
-      if (a.status === "completed") revenue += Number(a.price_usd)
+      if (a.status === "completed") {
+        revenue += Number(a.price_usd)
+        completed++
+      }
       if (a.status === "pending") pending++
     }
-    return { count, revenue, pending }
+    return { count, revenue, pending, completed }
   }, [appts])
 
   return (
-    <div>
-      <header className="mb-6 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Agenda</h1>
-          <Button onClick={() => setCreating(true)} size="sm">
-            <CalendarPlus className="mr-1 h-4 w-4" />
+    <div className="mx-auto max-w-5xl">
+      <PageHeader
+        title="Agenda"
+        description="Confirma, cobra y completa las citas del día."
+        actions={
+          <Button onClick={() => setCreating(true)}>
+            <CalendarPlus />
             Nueva cita
           </Button>
-        </div>
-        <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-2">
-          <Button size="icon" variant="ghost" onClick={() => shiftDate(-1)}>
-            <ChevronLeft className="h-4 w-4" />
-            <span className="sr-only">Anterior</span>
-          </Button>
-          <div className="flex flex-col items-center">
-            <p className="text-sm font-medium capitalize">{dateLabel}</p>
-            <button onClick={gotoToday} className="text-[10px] uppercase tracking-wider text-accent">
+        }
+      />
+
+      <div className="mb-6 flex items-center justify-between gap-2 rounded-xl border border-border bg-card p-1.5">
+        <Button size="icon" variant="ghost" onClick={() => shiftDate(-1)} className="size-9">
+          <ChevronLeft />
+          <span className="sr-only">Anterior</span>
+        </Button>
+        <div className="flex flex-col items-center gap-0.5">
+          <p className="text-sm font-semibold capitalize tracking-tight">{dateLabel}</p>
+          {!isToday ? (
+            <button
+              onClick={gotoToday}
+              className="text-[10px] font-medium uppercase tracking-wider text-accent hover:underline"
+            >
               ir a hoy
             </button>
-          </div>
-          <Button size="icon" variant="ghost" onClick={() => shiftDate(1)}>
-            <ChevronRight className="h-4 w-4" />
-            <span className="sr-only">Siguiente</span>
-          </Button>
+          ) : (
+            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">hoy</span>
+          )}
         </div>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <Stat label="Citas" value={String(totals.count)} />
-          <Stat label="Cobrado" value={formatUsd(totals.revenue)} />
-          <Stat label="Por confirmar" value={String(totals.pending)} />
-        </div>
-      </header>
+        <Button size="icon" variant="ghost" onClick={() => shiftDate(1)} className="size-9">
+          <ChevronRight />
+          <span className="sr-only">Siguiente</span>
+        </Button>
+      </div>
+
+      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+        <KpiCard label="Citas del día" value={String(totals.count)} />
+        <KpiCard label="Cobrado" value={formatUsd(totals.revenue)} accent />
+        <KpiCard label="Por confirmar" value={String(totals.pending)} />
+      </div>
 
       {appts.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            No hay citas este día.
-          </CardContent>
-        </Card>
+        <Empty className="border bg-card">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <CalendarDays />
+            </EmptyMedia>
+            <EmptyTitle>No hay citas este día</EmptyTitle>
+            <EmptyDescription>
+              Comparte tu URL pública para recibir reservas o crea una manualmente.
+            </EmptyDescription>
+          </EmptyHeader>
+          <Button onClick={() => setCreating(true)}>
+            <CalendarPlus />
+            Nueva cita
+          </Button>
+        </Empty>
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-2">
           {appts.map((a) => {
             const svc = services.find((s) => s.id === a.service_id)
             const st = a.staff_member_id ? staff.find((s) => s.id === a.staff_member_id) : null
@@ -208,6 +252,7 @@ export function AgendaView({
                     if (confirm("¿Cancelar esta cita?")) setStatus(a, "cancelled")
                   }}
                   onPay={() => setPaying(a)}
+                  onNoShow={() => setStatus(a, "no_show")}
                 />
               </li>
             )
@@ -240,33 +285,18 @@ export function AgendaView({
   )
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-border bg-card p-2">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-0.5 font-mono text-base font-semibold">{value}</p>
-    </div>
-  )
-}
-
 function StatusBadge({ status }: { status: Appointment["status"] }) {
-  const styles: Record<Appointment["status"], string> = {
-    pending: "bg-secondary text-foreground",
-    confirmed: "bg-accent/20 text-accent-foreground",
-    completed: "bg-foreground text-background",
-    cancelled: "bg-destructive/15 text-destructive",
-    no_show: "bg-destructive/15 text-destructive",
+  const config: Record<Appointment["status"], { label: string; className: string }> = {
+    pending: { label: "Por confirmar", className: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300" },
+    confirmed: { label: "Confirmada", className: "border-accent/40 bg-accent/15 text-accent-foreground" },
+    completed: { label: "Completada", className: "border-foreground/20 bg-foreground/5 text-foreground" },
+    cancelled: { label: "Cancelada", className: "border-destructive/30 bg-destructive/10 text-destructive" },
+    no_show: { label: "No asistió", className: "border-destructive/30 bg-destructive/10 text-destructive" },
   }
-  const label: Record<Appointment["status"], string> = {
-    pending: "Por confirmar",
-    confirmed: "Confirmada",
-    completed: "Completada",
-    cancelled: "Cancelada",
-    no_show: "No asistió",
-  }
+  const c = config[status]
   return (
-    <Badge variant="secondary" className={styles[status]}>
-      {label[status]}
+    <Badge variant="outline" className={cn("text-[10px] font-medium uppercase tracking-wider", c.className)}>
+      {c.label}
     </Badge>
   )
 }
@@ -278,6 +308,7 @@ function AppointmentCard({
   onConfirm,
   onCancel,
   onPay,
+  onNoShow,
 }: {
   appt: Appointment
   serviceName: string
@@ -285,6 +316,7 @@ function AppointmentCard({
   onConfirm: () => void
   onCancel: () => void
   onPay: () => void
+  onNoShow: () => void
 }) {
   const time = new Date(appt.scheduled_at).toLocaleTimeString("es-VE", {
     hour: "2-digit",
@@ -295,62 +327,101 @@ function AppointmentCard({
   const finished = appt.status === "completed" || appt.status === "cancelled" || appt.status === "no_show"
   const waUrl = `https://wa.me/${toWhatsappNumber(appt.client_phone)}?text=${encodeURIComponent(`Hola ${appt.client_name}, te confirmamos tu cita a las ${time}.`)}`
 
+  const accentColor =
+    appt.status === "completed"
+      ? "bg-foreground"
+      : appt.status === "confirmed"
+        ? "bg-accent"
+        : appt.status === "pending"
+          ? "bg-amber-500"
+          : "bg-muted-foreground/30"
+
   return (
-    <Card className={finished ? "opacity-80" : ""}>
-      <CardContent className="grid gap-3 p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex flex-col items-center rounded-md bg-secondary px-3 py-2">
-            <Clock className="mb-1 h-3 w-3 text-muted-foreground" />
-            <span className="font-mono text-base font-semibold">{time}</span>
-            <span className="text-[10px] text-muted-foreground">{appt.duration_minutes}m</span>
+    <Card
+      className={cn(
+        "group relative overflow-hidden transition-colors hover:border-foreground/20",
+        finished && "opacity-75",
+      )}
+    >
+      {/* Status accent bar */}
+      <span className={cn("absolute inset-y-0 left-0 w-1", accentColor)} aria-hidden />
+      <CardContent className="grid gap-3 p-4 pl-5">
+        <div className="flex items-start gap-4">
+          <div className="flex w-16 shrink-0 flex-col items-center rounded-lg bg-secondary/60 px-2 py-2">
+            <span className="font-mono text-lg font-semibold leading-none tabular-nums">{time}</span>
+            <span className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+              {appt.duration_minutes}min
+            </span>
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h3 className="truncate text-base font-semibold tracking-tight">{appt.client_name}</h3>
-                <p className="truncate text-sm text-muted-foreground">
-                  {serviceName} · {staffName}
+                <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                  {serviceName} <span className="text-muted-foreground/50">·</span> {staffName}
                 </p>
               </div>
-              <StatusBadge status={appt.status} />
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-sm font-semibold tabular-nums">
+                  {formatUsd(Number(appt.price_usd))}
+                </span>
+                <StatusBadge status={appt.status} />
+              </div>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <a href={`tel:${appt.client_phone}`} className="inline-flex items-center gap-1 underline-offset-2 hover:underline">
-                <Phone className="h-3.5 w-3.5" />
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <a
+                href={`tel:${appt.client_phone}`}
+                className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+              >
+                <Phone className="size-3" />
                 {appt.client_phone}
               </a>
               <a
                 href={waUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-accent underline-offset-2 hover:underline"
+                className="inline-flex items-center gap-1 text-accent-foreground/80 transition-colors hover:text-foreground"
               >
-                <MessageCircle className="h-3.5 w-3.5" />
+                <MessageCircle className="size-3" />
                 WhatsApp
               </a>
-              <span className="ml-auto font-mono font-semibold text-foreground">{formatUsd(Number(appt.price_usd))}</span>
             </div>
           </div>
         </div>
 
         {!finished && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
             {appt.status === "pending" && (
               <Button size="sm" variant="outline" onClick={onConfirm}>
-                <Check className="mr-1 h-4 w-4" />
+                <Check />
                 Confirmar
               </Button>
             )}
             {(appt.status === "pending" || appt.status === "confirmed") && (
               <Button size="sm" onClick={onPay}>
-                <Wallet className="mr-1 h-4 w-4" />
+                <Wallet />
                 Cobrar y completar
               </Button>
             )}
-            <Button size="sm" variant="ghost" onClick={onCancel} className="text-destructive hover:text-destructive">
-              <XIcon className="mr-1 h-4 w-4" />
-              Cancelar
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="icon" variant="ghost" className="ml-auto size-8">
+                  <MoreVertical className="size-4" />
+                  <span className="sr-only">Más opciones</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onNoShow}>
+                  <XIcon className="mr-2 size-4" />
+                  Marcar como no asistió
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onCancel} className="text-destructive focus:text-destructive">
+                  <Trash2 className="mr-2 size-4" />
+                  Cancelar cita
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </CardContent>
@@ -392,10 +463,7 @@ function PaymentDialog({
   const balanced = Math.abs(diff) < 0.01
 
   function add() {
-    setDrafts((p) => [
-      ...p,
-      { id: crypto.randomUUID(), method: "cash_vef", amount: "", currency: "VEF" },
-    ])
+    setDrafts((p) => [...p, { id: crypto.randomUUID(), method: "cash_vef", amount: "", currency: "VEF" }])
   }
   function update(id: string, patch: Partial<PaymentDraft>) {
     setDrafts((p) =>
@@ -441,7 +509,11 @@ function PaymentDialog({
       }
       const { data, error } = await supabase
         .from("appointments")
-        .update({ status: "completed", rate_vef_snapshot: rate, price_vef_snapshot: rate ? usdToVef(target, rate) : null })
+        .update({
+          status: "completed",
+          rate_vef_snapshot: rate,
+          price_vef_snapshot: rate ? usdToVef(target, rate) : null,
+        })
         .eq("id", appt.id)
         .select()
         .single()
@@ -456,12 +528,12 @@ function PaymentDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Cobrar cita</DialogTitle>
           <DialogDescription>
-            {appt.client_name} · {formatUsd(target)}
-            {rate ? ` · Tasa Bs. ${rate.toLocaleString("es-VE")}` : ""}
+            {appt.client_name} · objetivo {formatUsd(target)}
+            {rate ? ` · Bs. ${rate.toLocaleString("es-VE")}/USD` : ""}
           </DialogDescription>
         </DialogHeader>
 
@@ -491,39 +563,43 @@ function PaymentDialog({
                   step="0.01"
                   value={d.amount}
                   onChange={(e) => update(d.id, { amount: e.target.value })}
+                  className="font-mono"
                 />
               </div>
               <Button size="icon" variant="ghost" onClick={() => remove(d.id)} disabled={drafts.length === 1}>
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="size-4" />
                 <span className="sr-only">Quitar</span>
               </Button>
             </div>
           ))}
 
           <Button type="button" variant="outline" size="sm" onClick={add}>
-            <Plus className="mr-1 h-4 w-4" />
+            <Plus />
             Agregar método
           </Button>
 
-          <div className="rounded-md bg-secondary/50 p-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total cobrado</span>
-              <span className="font-mono font-semibold">{formatUsd(totalUsd)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Servicio</span>
-              <span className="font-mono">{formatUsd(target)}</span>
-            </div>
-            <div
-              className={`mt-1 flex justify-between border-t border-border pt-1 font-medium ${
-                balanced ? "text-foreground" : "text-destructive"
-              }`}
-            >
-              <span>Diferencia</span>
-              <span className="font-mono">{formatUsd(diff)}</span>
+          <div className="rounded-lg border border-border bg-secondary/40 p-4">
+            <div className="grid gap-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Servicio</span>
+                <span className="font-mono tabular-nums">{formatUsd(target)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total cobrado</span>
+                <span className="font-mono font-semibold tabular-nums">{formatUsd(totalUsd)}</span>
+              </div>
+              <div
+                className={cn(
+                  "mt-1 flex justify-between border-t border-border pt-2 font-medium",
+                  balanced ? "text-foreground" : "text-destructive",
+                )}
+              >
+                <span>{balanced ? "Cuadrado" : "Diferencia"}</span>
+                <span className="font-mono tabular-nums">{balanced ? "—" : formatUsd(diff)}</span>
+              </div>
             </div>
             {rate && drafts.some((d) => d.currency === "VEF" && Number(d.amount) > 0) && (
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-3 border-t border-border pt-2 text-[11px] text-muted-foreground">
                 Equivalencia Bs. → USD a tasa {rate.toLocaleString("es-VE")}.
               </p>
             )}
@@ -614,13 +690,13 @@ function NewAppointmentDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Nueva cita</DialogTitle>
           <DialogDescription>Agendar manualmente sin pasar por la URL pública.</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="grid gap-3">
-          <div className="grid gap-1">
+          <div className="grid gap-1.5">
             <Label>Servicio</Label>
             <Select value={serviceId} onValueChange={setServiceId}>
               <SelectTrigger>
@@ -636,12 +712,12 @@ function NewAppointmentDialog({
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1">
+            <div className="grid gap-1.5">
               <Label>Hora</Label>
               <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
             </div>
-            <div className="grid gap-1">
-              <Label>Profesional</Label>
+            <div className="grid gap-1.5">
+              <Label>Entrenador</Label>
               <Select value={staffId || "none"} onValueChange={(v) => setStaffId(v === "none" ? "" : v)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -657,11 +733,11 @@ function NewAppointmentDialog({
               </Select>
             </div>
           </div>
-          <div className="grid gap-1">
+          <div className="grid gap-1.5">
             <Label>Nombre del cliente</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
-          <div className="grid gap-1">
+          <div className="grid gap-1.5">
             <Label>Teléfono</Label>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0412..." required />
           </div>

@@ -7,8 +7,24 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { ChevronLeft, ChevronRight, Wallet, Check } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  ChevronLeft,
+  ChevronRight,
+  Wallet,
+  Check,
+  Banknote,
+  Smartphone,
+  CircleDollarSign,
+  Bitcoin,
+  CreditCard,
+} from "lucide-react"
 import { formatUsd, formatVef, vefToUsd } from "@/lib/exchange-rate"
+import { PageHeader } from "../_components/page-header"
+import { KpiCard } from "../_components/kpi-card"
+import { cn } from "@/lib/utils"
 
 type SystemTotals = {
   cash_usd: number
@@ -37,13 +53,14 @@ const ROWS: Array<{
   key: keyof SystemTotals
   label: string
   currency: "USD" | "VEF"
+  icon: React.ComponentType<{ className?: string }>
 }> = [
-  { key: "cash_usd", label: "Efectivo USD", currency: "USD" },
-  { key: "cash_vef", label: "Efectivo Bs.", currency: "VEF" },
-  { key: "pago_movil", label: "Pago Móvil", currency: "VEF" },
-  { key: "zelle", label: "Zelle", currency: "USD" },
-  { key: "binance", label: "Binance", currency: "USD" },
-  { key: "other", label: "Otros", currency: "USD" },
+  { key: "cash_usd", label: "Efectivo USD", currency: "USD", icon: Banknote },
+  { key: "cash_vef", label: "Efectivo Bs.", currency: "VEF", icon: Banknote },
+  { key: "pago_movil", label: "Pago Móvil", currency: "VEF", icon: Smartphone },
+  { key: "zelle", label: "Zelle", currency: "USD", icon: CircleDollarSign },
+  { key: "binance", label: "Binance", currency: "USD", icon: Bitcoin },
+  { key: "other", label: "Otros", currency: "USD", icon: CreditCard },
 ]
 
 export function CashCloseView({
@@ -150,101 +167,124 @@ export function CashCloseView({
     }
   }
 
-  return (
-    <div>
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Cierre de caja</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Compara lo que cobró el sistema con lo que cuentas físicamente.
-        </p>
-      </header>
+  const balanced = Math.abs(totals.variance) < 0.01
 
-      <div className="mb-4 flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-2">
-        <Button size="icon" variant="ghost" onClick={() => shiftDate(-1)}>
-          <ChevronLeft className="h-4 w-4" />
+  return (
+    <div className="mx-auto max-w-5xl">
+      <PageHeader
+        title="Cierre de caja"
+        description="Compara lo que cobró el sistema con lo que cuentas físicamente. El descuadre se calcula en USD."
+        actions={
+          existing?.closed_at ? (
+            <Badge variant="outline" className="border-accent/40 bg-accent/15 text-accent-foreground">
+              <Check className="size-3" />
+              Caja cerrada
+            </Badge>
+          ) : undefined
+        }
+      />
+
+      <div className="mb-6 flex items-center justify-between gap-2 rounded-xl border border-border bg-card p-1.5">
+        <Button size="icon" variant="ghost" onClick={() => shiftDate(-1)} className="size-9">
+          <ChevronLeft />
           <span className="sr-only">Anterior</span>
         </Button>
-        <div className="flex flex-col items-center">
-          <p className="text-sm font-medium capitalize">{dateLabel}</p>
-          {existing?.closed_at && (
-            <span className="text-[10px] uppercase tracking-wider text-accent">cerrado</span>
-          )}
+        <div className="flex flex-col items-center gap-0.5">
+          <p className="text-sm font-semibold capitalize tracking-tight">{dateLabel}</p>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            {rateToUse ? `tasa Bs. ${rateToUse.toLocaleString("es-VE")}` : "sin tasa"}
+          </span>
         </div>
-        <Button size="icon" variant="ghost" onClick={() => shiftDate(1)}>
-          <ChevronRight className="h-4 w-4" />
+        <Button size="icon" variant="ghost" onClick={() => shiftDate(1)} className="size-9">
+          <ChevronRight />
           <span className="sr-only">Siguiente</span>
         </Button>
       </div>
 
-      <Card className="mb-6">
-        <CardContent className="grid gap-4 p-5">
-          <div className="grid grid-cols-[1.4fr_1fr_1fr_auto] items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
-            <div>Método</div>
-            <div className="text-right">Sistema</div>
-            <div className="text-right">Contado</div>
-            <div className="text-right">Dif. USD</div>
-          </div>
-          {totals.rows.map((r) => (
-            <div key={r.key} className="grid grid-cols-[1.4fr_1fr_1fr_auto] items-center gap-2">
-              <Label htmlFor={`c-${r.key}`} className="text-sm font-normal">
-                {r.label}
-              </Label>
-              <div className="text-right font-mono text-sm tabular-nums text-muted-foreground">
-                {r.currency === "USD" ? formatUsd(r.sys) : formatVef(r.sys)}
-              </div>
-              <Input
-                id={`c-${r.key}`}
-                type="number"
-                min={0}
-                step="0.01"
-                value={counted[r.key]}
-                onChange={(e) => setCounted((p) => ({ ...p, [r.key]: e.target.value }))}
-                className="text-right font-mono"
-              />
-              <div
-                className={`min-w-[64px] text-right font-mono text-sm tabular-nums ${
-                  Math.abs(r.diff) < 0.01 ? "text-muted-foreground" : "text-destructive"
-                }`}
-              >
-                {formatUsd(r.diff)}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card className="mb-6 bg-secondary/40">
-        <CardContent className="grid grid-cols-3 gap-4 p-5 text-center">
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Sistema</p>
-            <p className="mt-1 font-mono text-lg font-semibold">{formatUsd(systemUsdTotal)}</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Contado</p>
-            <p className="mt-1 font-mono text-lg font-semibold">{formatUsd(totals.countedUsd)}</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Descuadre</p>
+      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+        <KpiCard label="Sistema" value={formatUsd(systemUsdTotal)} hint="Lo que el sistema registró" />
+        <KpiCard label="Contado" value={formatUsd(totals.countedUsd)} hint="Lo que tú contaste físicamente" />
+        <Card className={cn("relative overflow-hidden", !balanced && "border-destructive/50")}>
+          <CardContent className="flex flex-col gap-3 p-5">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Descuadre</span>
             <p
-              className={`mt-1 font-mono text-lg font-semibold ${
-                Math.abs(totals.variance) < 0.01 ? "text-foreground" : "text-destructive"
-              }`}
+              className={cn(
+                "font-mono text-3xl font-semibold tabular-nums tracking-tight",
+                balanced ? "text-foreground" : "text-destructive",
+              )}
             >
-              {formatUsd(totals.variance)}
+              {balanced ? "—" : formatUsd(totals.variance)}
             </p>
-          </div>
-        </CardContent>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {balanced ? "Todo cuadra perfectamente" : totals.variance > 0 ? "Sobra dinero contado" : "Falta dinero"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="mb-6 overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-secondary/40 hover:bg-secondary/40">
+              <TableHead className="w-[40%]">Método</TableHead>
+              <TableHead className="text-right">Sistema</TableHead>
+              <TableHead className="text-right">Contado</TableHead>
+              <TableHead className="w-[100px] text-right">Dif. USD</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {totals.rows.map((r) => {
+              const rowBalanced = Math.abs(r.diff) < 0.01
+              return (
+                <TableRow key={r.key}>
+                  <TableCell>
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex size-7 items-center justify-center rounded-md bg-secondary text-foreground">
+                        <r.icon className="size-3.5" />
+                      </span>
+                      <span className="font-medium">{r.label}</span>
+                      <Badge variant="outline" className="text-[9px] font-medium uppercase tracking-wider">
+                        {r.currency}
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm text-muted-foreground tabular-nums">
+                    {r.currency === "USD" ? formatUsd(r.sys) : formatVef(r.sys)}
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      id={`c-${r.key}`}
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={counted[r.key]}
+                      onChange={(e) => setCounted((p) => ({ ...p, [r.key]: e.target.value }))}
+                      className="ml-auto h-8 max-w-[140px] text-right font-mono tabular-nums"
+                    />
+                  </TableCell>
+                  <TableCell
+                    className={cn(
+                      "text-right font-mono text-sm tabular-nums",
+                      rowBalanced ? "text-muted-foreground" : "font-semibold text-destructive",
+                    )}
+                  >
+                    {rowBalanced ? "—" : formatUsd(r.diff)}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
       </Card>
 
       <div className="mb-6 grid gap-2">
         <Label htmlFor="notes">Notas (opcional)</Label>
-        <textarea
+        <Textarea
           id="notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          placeholder="Diferencias, observaciones..."
+          placeholder="Diferencias, observaciones, qué pasó hoy..."
         />
       </div>
 
@@ -254,9 +294,23 @@ export function CashCloseView({
         </p>
       )}
 
-      <Button onClick={save} disabled={busy} className="w-full sm:w-auto">
-        {busy ? "Guardando..." : existing?.closed_at ? <>Actualizar cierre <Check className="ml-1 h-4 w-4" /></> : <><Wallet className="mr-1 h-4 w-4" /> Cerrar caja</>}
-      </Button>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button onClick={save} disabled={busy} size="lg">
+          {busy ? (
+            "Guardando..."
+          ) : existing?.closed_at ? (
+            <>
+              <Check />
+              Actualizar cierre
+            </>
+          ) : (
+            <>
+              <Wallet />
+              Cerrar caja del día
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   )
 }

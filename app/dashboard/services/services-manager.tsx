@@ -8,7 +8,24 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
-import { Plus, Trash2, Clock, DollarSign, Pencil, X } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { Plus, Trash2, Clock, Pencil, MoreHorizontal, Sparkles, PowerOff } from "lucide-react"
 import { formatUsd } from "@/lib/exchange-rate"
 
 type Service = {
@@ -31,7 +48,16 @@ export function ServicesManager({
   const router = useRouter()
   const [services, setServices] = useState<Service[]>(initialServices)
   const [editing, setEditing] = useState<Service | null>(null)
-  const [creating, setCreating] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+
+  function openNew() {
+    setEditing(null)
+    setDialogOpen(true)
+  }
+  function openEdit(s: Service) {
+    setEditing(s)
+    setDialogOpen(true)
+  }
 
   function onSaved(s: Service) {
     setServices((prev) => {
@@ -43,8 +69,8 @@ export function ServicesManager({
       }
       return [s, ...prev]
     })
+    setDialogOpen(false)
     setEditing(null)
-    setCreating(false)
     router.refresh()
   }
 
@@ -71,79 +97,155 @@ export function ServicesManager({
     }
   }
 
+  const activeCount = services.filter((s) => s.active).length
+
   return (
-    <div className="space-y-6">
-      {!creating && !editing && (
-        <Button onClick={() => setCreating(true)} className="w-full sm:w-auto">
-          <Plus className="mr-2 h-4 w-4" />
+    <>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <Badge variant="secondary" className="font-mono">
+            {services.length} total
+          </Badge>
+          <span>·</span>
+          <span>
+            <span className="font-medium text-foreground">{activeCount}</span> visible{activeCount === 1 ? "" : "s"}{" "}
+            públicamente
+          </span>
+        </div>
+        <Button onClick={openNew}>
+          <Plus />
           Nuevo servicio
         </Button>
-      )}
-
-      {(creating || editing) && (
-        <ServiceForm
-          tenantId={tenantId}
-          initial={editing}
-          onSaved={onSaved}
-          onCancel={() => {
-            setCreating(false)
-            setEditing(null)
-          }}
-        />
-      )}
+      </div>
 
       {services.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Aún no tienes servicios. Crea el primero para que aparezca en tu URL pública.
-          </CardContent>
-        </Card>
+        <Empty className="border bg-card">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Sparkles />
+            </EmptyMedia>
+            <EmptyTitle>Aún no tienes servicios</EmptyTitle>
+            <EmptyDescription>
+              Define tu primer servicio (mensualidad, clase, entrenamiento) para que tus clientes puedan reservar desde
+              tu URL pública.
+            </EmptyDescription>
+          </EmptyHeader>
+          <Button onClick={openNew}>
+            <Plus />
+            Crear servicio
+          </Button>
+        </Empty>
       ) : (
-        <ul className="grid gap-3">
+        <ul className="grid gap-3 lg:grid-cols-2">
           {services.map((s) => (
             <li key={s.id}>
-              <Card className={s.active ? "" : "opacity-60"}>
-                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+              <Card
+                className={`group transition-colors hover:border-foreground/20 ${
+                  s.active ? "" : "opacity-70"
+                }`}
+              >
+                <CardContent className="flex items-start gap-3 p-4">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
+                    <Sparkles className="size-4" />
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline gap-2">
                       <h3 className="text-base font-semibold tracking-tight">{s.name}</h3>
                       {s.category && (
-                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground">
+                        <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
                           {s.category}
-                        </span>
+                        </Badge>
+                      )}
+                      {!s.active && (
+                        <Badge variant="secondary" className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Oculto
+                        </Badge>
                       )}
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                      <span className="inline-flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" /> {s.duration_minutes} min
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                      <span className="inline-flex items-center gap-1 text-muted-foreground">
+                        <Clock className="size-3.5" /> {s.duration_minutes} min
                       </span>
-                      <span className="inline-flex items-center gap-1 font-semibold text-foreground">
-                        <DollarSign className="h-3.5 w-3.5" />
-                        {formatUsd(Number(s.price_usd))}
-                      </span>
+                      <span className="font-mono font-semibold text-foreground">{formatUsd(Number(s.price_usd))}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Switch checked={s.active} onCheckedChange={() => toggleActive(s)} aria-label="Activo" />
-                      <span>{s.active ? "Activo" : "Inactivo"}</span>
-                    </div>
-                    <Button size="icon" variant="ghost" onClick={() => setEditing(s)}>
-                      <Pencil className="h-4 w-4" />
-                      <span className="sr-only">Editar</span>
-                    </Button>
-                    <Button size="icon" variant="ghost" onClick={() => remove(s)}>
-                      <Trash2 className="h-4 w-4" />
-                      <span className="sr-only">Eliminar</span>
-                    </Button>
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                      >
+                        <MoreHorizontal className="size-4" />
+                        <span className="sr-only">Acciones</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => openEdit(s)}>
+                        <Pencil className="mr-2 size-4" /> Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toggleActive(s)}>
+                        <PowerOff className="mr-2 size-4" />
+                        {s.active ? "Desactivar" : "Activar"}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => remove(s)} className="text-destructive focus:text-destructive">
+                        <Trash2 className="mr-2 size-4" /> Eliminar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </CardContent>
               </Card>
             </li>
           ))}
         </ul>
       )}
-    </div>
+
+      <ServiceDialog
+        open={dialogOpen}
+        onOpenChange={(o) => {
+          setDialogOpen(o)
+          if (!o) setEditing(null)
+        }}
+        tenantId={tenantId}
+        initial={editing}
+        onSaved={onSaved}
+      />
+    </>
+  )
+}
+
+function ServiceDialog({
+  open,
+  onOpenChange,
+  tenantId,
+  initial,
+  onSaved,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  tenantId: string
+  initial: Service | null
+  onSaved: (s: Service) => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{initial ? "Editar servicio" : "Nuevo servicio"}</DialogTitle>
+          <DialogDescription>
+            Esto controla lo que aparece en tu URL pública de reservas.
+          </DialogDescription>
+        </DialogHeader>
+        <ServiceForm
+          key={initial?.id ?? "new"}
+          tenantId={tenantId}
+          initial={initial}
+          onSaved={onSaved}
+          onCancel={() => onOpenChange(false)}
+        />
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -202,80 +304,77 @@ function ServiceForm({
   }
 
   return (
-    <Card>
-      <CardContent className="p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold tracking-tight">{initial ? "Editar servicio" : "Nuevo servicio"}</h2>
-          <Button size="icon" variant="ghost" onClick={onCancel} type="button">
-            <X className="h-4 w-4" />
-            <span className="sr-only">Cerrar</span>
-          </Button>
+    <form onSubmit={submit} className="grid gap-4">
+      <div className="grid gap-2">
+        <Label htmlFor="svc-name">Nombre</Label>
+        <Input
+          id="svc-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Mensualidad estándar"
+          required
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-2">
+          <Label htmlFor="svc-cat">Categoría</Label>
+          <Input
+            id="svc-cat"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            placeholder="Membresía / Clase / PT"
+          />
         </div>
-        <form onSubmit={submit} className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="svc-name">Nombre</Label>
-            <Input
-              id="svc-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Mensualidad estándar"
-              required
-            />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="svc-cat">Categoría (opcional)</Label>
-              <Input
-                id="svc-cat"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder="Membresía / Clase / PT"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="svc-dur">Duración (min)</Label>
-              <Input
-                id="svc-dur"
-                type="number"
-                min={5}
-                step={5}
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                required
-              />
-            </div>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="svc-price">Precio en USD</Label>
-            <Input
-              id="svc-price"
-              type="number"
-              min={0}
-              step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              required
-            />
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <Switch checked={active} onCheckedChange={setActive} />
-            Visible en la URL pública
-          </label>
-          {err && (
-            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {err}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={onCancel}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={busy}>
-              {busy ? "Guardando..." : "Guardar"}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+        <div className="grid gap-2">
+          <Label htmlFor="svc-dur">Duración (min)</Label>
+          <Input
+            id="svc-dur"
+            type="number"
+            min={5}
+            step={5}
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+            required
+          />
+        </div>
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="svc-price">Precio en USD</Label>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+          <Input
+            id="svc-price"
+            type="number"
+            min={0}
+            step="0.01"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            required
+            className="pl-7 font-mono"
+            placeholder="0.00"
+          />
+        </div>
+      </div>
+      <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-3">
+        <div>
+          <p className="text-sm font-medium">Visible en URL pública</p>
+          <p className="text-xs text-muted-foreground">Los clientes podrán reservar este servicio</p>
+        </div>
+        <Switch checked={active} onCheckedChange={setActive} />
+      </div>
+      {err && (
+        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {err}
+        </p>
+      )}
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={onCancel}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={busy}>
+          {busy ? "Guardando..." : initial ? "Guardar cambios" : "Crear servicio"}
+        </Button>
+      </DialogFooter>
+    </form>
   )
 }
