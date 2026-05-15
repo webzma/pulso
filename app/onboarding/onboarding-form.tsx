@@ -19,7 +19,7 @@ export function OnboardingForm() {
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
   const [slugTouched, setSlugTouched] = useState(false)
-  const [businessType, setBusinessType] = useState<"barberia" | "estetica" | "otro">("barberia")
+  const [businessType, setBusinessType] = useState<"gimnasio" | "crossfit" | "estudio" | "otro">("gimnasio")
   const [phone, setPhone] = useState("")
   const [address, setAddress] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -115,7 +115,7 @@ export function OnboardingForm() {
             <Input
               id="name"
               required
-              placeholder="Barbería El Maestro"
+              placeholder="Iron Gym Caracas"
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoFocus
@@ -127,7 +127,7 @@ export function OnboardingForm() {
             <div className="flex items-stretch overflow-hidden rounded-md border border-input bg-card focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-0">
               <span className="flex items-center gap-1.5 border-r border-input bg-muted px-3 text-sm text-muted-foreground">
                 <Globe className="h-3.5 w-3.5" />
-                tijera.app/
+                pulso.app/
               </span>
               <input
                 id="slug"
@@ -137,7 +137,7 @@ export function OnboardingForm() {
                   setSlugTouched(true)
                   setSlug(slugify(e.target.value))
                 }}
-                placeholder="tu-barberia"
+                placeholder="tu-gimnasio"
               />
             </div>
             <p className="text-xs text-muted-foreground">
@@ -159,8 +159,9 @@ export function OnboardingForm() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="barberia">Barbería</SelectItem>
-                <SelectItem value="estetica">Centro de estética</SelectItem>
+                <SelectItem value="gimnasio">Gimnasio</SelectItem>
+                <SelectItem value="crossfit">Box de CrossFit / funcional</SelectItem>
+                <SelectItem value="estudio">Estudio (yoga, pilates, spinning)</SelectItem>
                 <SelectItem value="otro">Otro</SelectItem>
               </SelectContent>
             </Select>

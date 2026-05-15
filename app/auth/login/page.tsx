@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Scissors } from "lucide-react"
+import { Dumbbell } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -40,9 +40,9 @@ export default function LoginPage() {
       <div className="flex w-full max-w-sm flex-col gap-6">
         <Link href="/" className="mx-auto flex items-center gap-2 font-semibold">
           <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Scissors className="h-4 w-4" />
+            <Dumbbell className="h-4 w-4" />
           </span>
-          <span className="text-lg tracking-tight">Tijera</span>
+          <span className="text-lg tracking-tight">Pulso</span>
         </Link>
         <Card>
           <CardHeader>

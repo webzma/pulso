@@ -1,6 +1,6 @@
 /**
  * Genera un slug URL-friendly a partir de un texto libre.
- * Ej: "Barbería El Maestro" → "barberia-el-maestro"
+ * Ej: "Iron Gym Caracas" → "iron-gym-caracas"
  */
 export function slugify(input: string): string {
   return input

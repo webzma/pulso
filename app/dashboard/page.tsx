@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { LogoutButton } from "./logout-button"
-import { Scissors, CalendarClock, Users, Wallet, ExternalLink, TrendingUp } from "lucide-react"
+import { Dumbbell, CalendarClock, Users, Wallet, ExternalLink, TrendingUp } from "lucide-react"
 import { fetchRateFromBCV } from "@/lib/exchange-rate"
 
 export default async function DashboardPage() {
@@ -31,7 +31,7 @@ export default async function DashboardPage() {
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Scissors className="h-4 w-4" />
+              <Dumbbell className="h-4 w-4" />
             </span>
             <span className="text-base tracking-tight">{tenant.name}</span>
           </Link>
@@ -48,7 +48,7 @@ export default async function DashboardPage() {
               href={`/${tenant.slug}`}
               className="inline-flex items-center gap-1 font-mono text-foreground underline underline-offset-4"
             >
-              tijera.app/{tenant.slug}
+              pulso.app/{tenant.slug}
               <ExternalLink className="h-3 w-3" />
             </Link>
           </p>
@@ -86,7 +86,7 @@ export default async function DashboardPage() {
           <StatCard
             icon={<Users className="h-5 w-5" />}
             title="Equipo y comisiones"
-            desc="Próximamente: barberos, porcentajes y pagos de comisión."
+            desc="Próximamente: entrenadores, porcentajes y pagos de comisión."
           />
           <StatCard
             icon={<Wallet className="h-5 w-5" />}
@@ -97,7 +97,7 @@ export default async function DashboardPage() {
 
         <div className="mt-8 rounded-xl border border-dashed border-border bg-card/40 p-6 text-center">
           <p className="text-sm text-muted-foreground">
-            Esta es la base de tu panel. Las pantallas de agenda, equipo, servicios y caja se construirán en las
+            Esta es la base de tu panel. Las pantallas de agenda, equipo, planes y caja se construirán en las
             próximas iteraciones.
           </p>
         </div>

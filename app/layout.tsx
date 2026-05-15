@@ -7,14 +7,14 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
 
 export const metadata: Metadata = {
-  title: "Tijera — Gestión para barberías y estéticas",
+  title: "Pulso — Gestión para gimnasios",
   description:
-    "Agenda, comisiones y cierre de caja bimonetario USD/VEF, en tu teléfono. Pensado para Venezuela.",
+    "Mensualidades, reservas de clases, comisiones y cierre de caja bimonetario USD/VEF, en tu teléfono. Pensado para gimnasios en Venezuela.",
   generator: "v0.app",
 }
 
 export const viewport: Viewport = {
-  themeColor: "#171513",
+  themeColor: "#0f1410",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

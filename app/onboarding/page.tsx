@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { OnboardingForm } from "./onboarding-form"
-import { Scissors } from "lucide-react"
+import { Dumbbell } from "lucide-react"
 import Link from "next/link"
 
 export default async function OnboardingPage() {
@@ -29,9 +29,9 @@ export default async function OnboardingPage() {
         <div className="mx-auto flex h-14 max-w-3xl items-center px-4">
           <Link href="/" className="flex items-center gap-2 font-semibold">
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Scissors className="h-4 w-4" />
+              <Dumbbell className="h-4 w-4" />
             </span>
-            <span className="text-base tracking-tight">Tijera</span>
+            <span className="text-base tracking-tight">Pulso</span>
           </Link>
         </div>
       </header>
@@ -45,8 +45,8 @@ export default async function OnboardingPage() {
             Bienvenido, {defaultName.split(" ")[0] || "amigo"}
           </h1>
           <p className="mt-2 text-pretty text-muted-foreground">
-            Cuéntanos de tu negocio. Esto creará tu URL pública de agendamiento, algo como{" "}
-            <span className="font-mono text-foreground">tijera.app/tu-barberia</span>.
+            Cuéntanos de tu gimnasio. Esto creará tu URL pública de reservas, algo como{" "}
+            <span className="font-mono text-foreground">pulso.app/tu-gimnasio</span>.
           </p>
         </div>
 

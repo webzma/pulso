@@ -1,6 +1,6 @@
 import Link from "next/link"
 import {
-  Scissors,
+  Dumbbell,
   CalendarClock,
   Wallet,
   TrendingUp,
@@ -22,9 +22,9 @@ export default async function LandingPage() {
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-2 font-semibold">
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Scissors className="h-4 w-4" />
+              <Dumbbell className="h-4 w-4" />
             </span>
-            <span className="text-base tracking-tight">Tijera</span>
+            <span className="text-base tracking-tight">Pulso</span>
           </Link>
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
@@ -46,15 +46,15 @@ export default async function LandingPage() {
           <div className="flex flex-col items-center gap-6 text-center">
             <span className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-xs font-medium text-foreground">
               <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-              Hecho en Venezuela, para Venezuela
+              Hecho en Venezuela, para tu gimnasio
             </span>
             <h1 className="max-w-3xl text-balance text-4xl font-semibold tracking-tight sm:text-5xl md:text-6xl">
-              Gestiona tu barbería desde el teléfono.{" "}
+              Gestiona tu gimnasio desde el teléfono.{" "}
               <span className="text-accent">Cobra en dólares</span>, cierra en bolívares.
             </h1>
             <p className="max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Agenda en línea sin contraseñas, comisiones automáticas y cierre de caja bimonetario.
-              Pensado para conexiones lentas y dueños que viven con el celular en la mano.
+              Mensualidades, reservas de clases y comisiones de entrenadores en una sola app.
+              Cierre de caja bimonetario, pensado para conexiones lentas y dueños que viven en el piso del gym.
             </p>
 
             <div className="flex flex-col items-center gap-3 pt-2 sm:flex-row">
@@ -99,18 +99,18 @@ export default async function LandingPage() {
         <div className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
-              Todo lo que necesitas en una sola pantalla
+              Todo lo que tu gimnasio necesita
             </h2>
             <p className="mt-3 text-pretty text-muted-foreground">
-              Sin instalaciones, sin licencias caras. Tu negocio funcionando en menos de 5 minutos.
+              Sin instalaciones, sin licencias caras. Tu gimnasio en marcha en menos de 5 minutos.
             </p>
           </div>
 
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <FeatureCard
               icon={<CalendarClock className="h-5 w-5" />}
-              title="Agenda en 3 toques"
-              desc="Tu cliente reserva sin crear cuenta. Solo nombre, teléfono y servicio. Recibes la cita por WhatsApp."
+              title="Mensualidades y clases"
+              desc="Vende pases diarios, mensualidades y reservas de clases. Tu cliente reserva sin crear cuenta, solo con su teléfono."
             />
             <FeatureCard
               icon={<Wallet className="h-5 w-5" />}
@@ -120,17 +120,17 @@ export default async function LandingPage() {
             <FeatureCard
               icon={<TrendingUp className="h-5 w-5" />}
               title="Comisiones al instante"
-              desc="Cada cita completada genera la comisión exacta del barbero o estilista. Pagas con un toque."
+              desc="Cada sesión de entrenamiento o clase genera la comisión exacta del entrenador. Pagas con un toque."
             />
             <FeatureCard
               icon={<Smartphone className="h-5 w-5" />}
               title="Mobile-first real"
-              desc="Diseñada para usar mientras cortas. Sin menús enredados, sin scroll infinito."
+              desc="Diseñada para usarse en el piso del gym. Sin menús enredados, sin scroll infinito."
             />
             <FeatureCard
               icon={<WifiOff className="h-5 w-5" />}
               title="Funciona con poca señal"
-              desc="Cache offline: si pierdes la señal un momento, sigues viendo tu agenda del día."
+              desc="Cache offline: si pierdes la señal un momento, sigues viendo la agenda del día."
             />
             <FeatureCard
               icon={<CheckCircle2 className="h-5 w-5" />}
@@ -153,17 +153,17 @@ export default async function LandingPage() {
             <Step
               n="1"
               title="Crea tu cuenta"
-              desc="Solo email y contraseña. Te damos una URL pública del estilo tijera.app/tu-barberia."
+              desc="Solo email y contraseña. Te damos una URL pública del estilo pulso.app/tu-gimnasio."
             />
             <Step
               n="2"
-              title="Carga tus servicios"
-              desc="Corte, barba, manicure… cada uno con precio en USD y duración. Cambias precios cuando quieras."
+              title="Carga tus planes y clases"
+              desc="Mensualidad, pase diario, sesión de entrenamiento personal, clase de spinning. Precios en USD."
             />
             <Step
               n="3"
               title="Comparte y agenda"
-              desc="Manda tu link por estado de WhatsApp. Los clientes reservan solos y tú confirmas con un toque."
+              desc="Manda tu link por estado de WhatsApp. Tus clientes reservan solos y tú confirmas con un toque."
             />
           </div>
           <div className="mt-12 flex justify-center">
@@ -186,9 +186,9 @@ export default async function LandingPage() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted-foreground sm:flex-row">
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded bg-primary text-primary-foreground">
-              <Scissors className="h-3 w-3" />
+              <Dumbbell className="h-3 w-3" />
             </span>
-            <span className="font-medium text-foreground">Tijera</span>
+            <span className="font-medium text-foreground">Pulso</span>
             <span>© {new Date().getFullYear()}</span>
           </div>
           <div className="flex items-center gap-4">
