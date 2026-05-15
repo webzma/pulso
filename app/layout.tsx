@@ -1,0 +1,34 @@
+import type { Metadata, Viewport } from "next"
+import { Geist, Geist_Mono } from "next/font/google"
+import { Analytics } from "@vercel/analytics/next"
+import "./globals.css"
+
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
+
+export const metadata: Metadata = {
+  title: "Tijera — Gestión para barberías y estéticas",
+  description:
+    "Agenda, comisiones y cierre de caja bimonetario USD/VEF, en tu teléfono. Pensado para Venezuela.",
+  generator: "v0.app",
+}
+
+export const viewport: Viewport = {
+  themeColor: "#171513",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+}
+
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="es" className={`${geist.variable} ${geistMono.variable} bg-background`}>
+      <body className="font-sans antialiased min-h-svh">
+        {children}
+        {process.env.NODE_ENV === "production" && <Analytics />}
+      </body>
+    </html>
+  )
+}
