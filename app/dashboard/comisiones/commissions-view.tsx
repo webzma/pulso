@@ -10,8 +10,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
-import { Check, ChevronDown, Percent } from "lucide-react"
+import { Check, ChevronDown, Percent, Download } from "lucide-react"
 import { formatUsd } from "@/lib/exchange-rate"
+import { downloadCsv, toCsv } from "@/lib/csv"
 import { PageHeader } from "../_components/page-header"
 import { KpiCard } from "../_components/kpi-card"
 import { cn } from "@/lib/utils"
@@ -135,11 +136,58 @@ export function CommissionsView({
     setBusy(null)
   }
 
+  function exportCsv() {
+    const csv = toCsv(data, [
+      { key: "id", label: "ID" },
+      {
+        key: "created_at",
+        label: "Generada",
+        format: (v) => new Date(v as string).toISOString(),
+      },
+      {
+        key: "appointment_id" as any,
+        label: "Cliente",
+        format: (_, row) => row.appointments?.client_name ?? "",
+      },
+      {
+        key: "appointment_id" as any,
+        label: "Servicio",
+        format: (_, row) => row.appointments?.services?.name ?? "",
+      },
+      {
+        key: "appointment_id" as any,
+        label: "Cita",
+        format: (_, row) => row.appointments?.scheduled_at ?? "",
+      },
+      {
+        key: "staff_member_id" as any,
+        label: "Entrenador",
+        format: (_, row) => staff.find((s) => s.id === row.staff_member_id)?.display_name ?? "",
+      },
+      { key: "service_amount_usd", label: "Cita USD", format: (v) => Number(v).toFixed(2) },
+      { key: "commission_percentage", label: "% Comisión", format: (v) => Number(v).toFixed(1) },
+      { key: "amount_usd", label: "Monto USD", format: (v) => Number(v).toFixed(2) },
+      { key: "paid", label: "Pagada", format: (v) => (v ? "Sí" : "No") },
+      {
+        key: "paid_at",
+        label: "Pagada en",
+        format: (v) => (v ? new Date(v as string).toISOString() : ""),
+      },
+    ])
+    downloadCsv(`comisiones_${from}_${to}.csv`, csv)
+  }
+
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader
         title="Comisiones"
         description="Cuánto le debes a cada miembro del equipo por las citas que han completado en el rango seleccionado."
+        actions={
+          <Button variant="outline" size="sm" onClick={exportCsv} disabled={data.length === 0}>
+            <Download />
+            Exportar CSV
+          </Button>
+        }
       />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-3">

@@ -41,7 +41,7 @@ export default async function PublicBookingPage({ params }: PageProps) {
   const [{ data: services }, { data: staff }] = await Promise.all([
     supabase
       .from("services")
-      .select("id, name, category, duration_minutes, price_usd")
+      .select("id, name, category, duration_minutes, price_usd, capacity")
       .eq("tenant_id", tenant.id)
       .eq("active", true)
       .order("name", { ascending: true }),

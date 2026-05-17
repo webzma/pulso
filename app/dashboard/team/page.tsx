@@ -17,7 +17,7 @@ export default async function TeamPage() {
 
   const { data: members } = await supabase
     .from("tenant_members")
-    .select("id, display_name, role, commission_percentage, active, user_id, created_at")
+    .select("id, display_name, role, commission_percentage, active, user_id, avatar_url, created_at")
     .eq("tenant_id", tenant!.id)
     .order("created_at", { ascending: true })
 

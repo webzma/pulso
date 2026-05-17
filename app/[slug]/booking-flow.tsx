@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase/client"
 import { formatUsd } from "@/lib/exchange-rate"
 import { isValidVePhone, toWhatsappNumber } from "@/lib/phone"
-import { ArrowLeft, ArrowRight, Check, Clock, MessageCircle, User } from "lucide-react"
+import { ArrowLeft, ArrowRight, Check, Clock, Loader2, MessageCircle, User, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type Service = {
@@ -18,6 +18,7 @@ type Service = {
   category: string | null
   duration_minutes: number
   price_usd: number
+  capacity: number
 }
 
 type Staff = {
@@ -35,23 +36,7 @@ type Tenant = {
 
 type Step = 1 | 2 | 3 | 4
 
-const TIME_SLOTS = [
-  "09:00",
-  "09:30",
-  "10:00",
-  "10:30",
-  "11:00",
-  "11:30",
-  "12:00",
-  "15:00",
-  "15:30",
-  "16:00",
-  "16:30",
-  "17:00",
-  "17:30",
-  "18:00",
-  "18:30",
-]
+type Slot = { slot_at: string; available: boolean }
 
 function nextDays(n: number): Date[] {
   const arr: Date[] = []
@@ -69,6 +54,24 @@ function formatDateLabel(d: Date): { day: string; num: string; month: string } {
   const days = ["DOM", "LUN", "MAR", "MIE", "JUE", "VIE", "SAB"]
   const months = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"]
   return { day: days[d.getDay()], num: String(d.getDate()), month: months[d.getMonth()] }
+}
+
+function localDateKey(d: Date): string {
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  const dd = String(d.getDate()).padStart(2, "0")
+  return `${yyyy}-${mm}-${dd}`
+}
+
+const BOOKING_ERROR: Record<string, string> = {
+  tenant_inactive: "Este negocio no está aceptando reservas en este momento.",
+  service_not_found_or_inactive: "El servicio ya no está disponible.",
+  slot_in_past: "Ese horario ya pasó. Elige otro.",
+  day_closed: "El gimnasio no abre ese día.",
+  outside_business_hours: "Ese horario está fuera del horario de atención.",
+  day_blocked: "Ese día no hay atención.",
+  staff_busy: "Ese profesional ya tiene cita a esa hora.",
+  class_full: "Esa clase ya está llena.",
 }
 
 export function BookingFlow({
@@ -92,7 +95,42 @@ export function BookingFlow({
   const [error, setError] = useState<string | null>(null)
   const [confirmed, setConfirmed] = useState<{ id: string } | null>(null)
 
+  const [slots, setSlots] = useState<Slot[]>([])
+  const [loadingSlots, setLoadingSlots] = useState(false)
+
   const days = useMemo(() => nextDays(14), [])
+  const isGroupClass = service && service.capacity > 1
+
+  // Load real availability whenever service/staff/date change
+  useEffect(() => {
+    if (!service || !date) {
+      setSlots([])
+      return
+    }
+    let cancelled = false
+    setLoadingSlots(true)
+    setTime(null)
+    const supabase = createClient()
+    supabase
+      .rpc("get_public_availability", {
+        p_tenant_id: tenant.id,
+        p_service_id: service.id,
+        p_staff_member_id: isGroupClass ? null : staffMember?.id ?? null,
+        p_date: localDateKey(date),
+      })
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) {
+          setSlots([])
+        } else {
+          setSlots((data as Slot[]) ?? [])
+        }
+        setLoadingSlots(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [service, staffMember, date, tenant.id, isGroupClass])
 
   if (services.length === 0) {
     return (
@@ -104,7 +142,6 @@ export function BookingFlow({
     )
   }
 
-  // Confirmation screen
   if (confirmed) {
     const waMessage = encodeURIComponent(
       `Hola ${tenant.name}! Acabo de reservar:\n\n` +
@@ -112,9 +149,7 @@ export function BookingFlow({
         `${date ? formatDateLabel(date).day + " " + date.getDate() + "/" + (date.getMonth() + 1) : ""} a las ${time}\n\n` +
         `A nombre de ${name}.`,
     )
-    const waLink = tenant.phone
-      ? `https://wa.me/${toWhatsappNumber(tenant.phone)}?text=${waMessage}`
-      : null
+    const waLink = tenant.phone ? `https://wa.me/${toWhatsappNumber(tenant.phone)}?text=${waMessage}` : null
 
     return (
       <div className="space-y-4">
@@ -123,7 +158,7 @@ export function BookingFlow({
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground">
               <Check className="h-7 w-7" strokeWidth={3} />
             </div>
-            <h2 className="mt-4 text-xl font-semibold text-foreground">{"¡Reserva enviada!"}</h2>
+            <h2 className="mt-4 text-xl font-semibold text-foreground">¡Reserva enviada!</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {tenant.name} confirmará tu cita por WhatsApp en breve.
             </p>
@@ -133,11 +168,7 @@ export function BookingFlow({
             {staffMember && <Row label="Profesional" value={staffMember.display_name} />}
             <Row
               label="Fecha"
-              value={
-                date
-                  ? `${formatDateLabel(date).day} ${date.getDate()}/${date.getMonth() + 1} a las ${time}`
-                  : ""
-              }
+              value={date ? `${formatDateLabel(date).day} ${date.getDate()}/${date.getMonth() + 1} a las ${time}` : ""}
             />
             <Row label="A nombre de" value={name} />
             <Row label="Teléfono" value={phone} />
@@ -162,35 +193,26 @@ export function BookingFlow({
     setSubmitting(true)
     setError(null)
 
-    const [h, m] = time.split(":").map(Number)
-    const scheduledAt = new Date(date)
-    scheduledAt.setHours(h, m, 0, 0)
+    const scheduledAtIso = `${localDateKey(date)}T${time}:00-04:00`
 
     const supabase = createClient()
-    const { data, error: insertErr } = await supabase
-      .from("appointments")
-      .insert({
-        tenant_id: tenant.id,
-        service_id: service.id,
-        staff_member_id: staffMember?.id ?? null,
-        client_name: name.trim(),
-        client_phone: phone.replace(/\D/g, ""),
-        scheduled_at: scheduledAt.toISOString(),
-        duration_minutes: service.duration_minutes,
-        status: "pending",
-        notes: notes.trim() || null,
-        price_usd: service.price_usd,
-      })
-      .select("id")
-      .single()
+    const { data, error: rpcErr } = await supabase.rpc("create_public_booking", {
+      p_tenant_id: tenant.id,
+      p_service_id: service.id,
+      p_staff_member_id: isGroupClass ? null : staffMember?.id ?? null,
+      p_client_name: name.trim(),
+      p_client_phone: phone.replace(/\D/g, ""),
+      p_scheduled_at: scheduledAtIso,
+      p_notes: notes.trim() || null,
+    })
 
-    if (insertErr || !data) {
-      setError(insertErr?.message ?? "No se pudo crear la reserva. Intenta de nuevo.")
-      setSubmitting(false)
+    setSubmitting(false)
+    if (rpcErr) {
+      const code = (rpcErr.message ?? "").trim()
+      setError(BOOKING_ERROR[code] ?? rpcErr.message ?? "No se pudo crear la reserva.")
       return
     }
-    setConfirmed({ id: data.id })
-    setSubmitting(false)
+    setConfirmed({ id: data as string })
   }
 
   return (
@@ -217,9 +239,16 @@ export function BookingFlow({
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-foreground">{s.name}</p>
                       {s.category && <p className="text-xs text-muted-foreground">{s.category}</p>}
-                      <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {s.duration_minutes} min
+                      <p className="mt-1 inline-flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {s.duration_minutes} min
+                        </span>
+                        {s.capacity > 1 && (
+                          <span className="inline-flex items-center gap-1">
+                            <Users className="h-3 w-3" /> grupo de {s.capacity}
+                          </span>
+                        )}
                       </p>
                     </div>
                     <p className="shrink-0 text-base font-semibold text-foreground">{formatUsd(s.price_usd)}</p>
@@ -233,7 +262,7 @@ export function BookingFlow({
             size="lg"
             className="w-full"
             disabled={!service}
-            onClick={() => setStep(staff.length > 0 ? 2 : 3)}
+            onClick={() => setStep(staff.length > 0 && !isGroupClass ? 2 : 3)}
           >
             Continuar
             <ArrowRight className="ml-2 h-4 w-4" />
@@ -241,7 +270,7 @@ export function BookingFlow({
         </section>
       )}
 
-      {step === 2 && (
+      {step === 2 && !isGroupClass && (
         <section className="space-y-3">
           <BackButton onClick={() => setStep(1)} />
           <h2 className="text-base font-semibold text-foreground">¿Con quién?</h2>
@@ -251,9 +280,7 @@ export function BookingFlow({
               onClick={() => setStaffMember(null)}
               className={cn(
                 "w-full rounded-xl border bg-card p-4 text-left transition-colors",
-                staffMember === null
-                  ? "border-foreground ring-2 ring-accent"
-                  : "border-border hover:border-foreground/40",
+                staffMember === null ? "border-foreground ring-2 ring-accent" : "border-border hover:border-foreground/40",
               )}
             >
               <p className="font-medium text-foreground">Sin preferencia</p>
@@ -291,10 +318,10 @@ export function BookingFlow({
 
       {step === 3 && (
         <section className="space-y-4">
-          <BackButton onClick={() => setStep(staff.length > 0 ? 2 : 1)} />
+          <BackButton onClick={() => setStep(staff.length > 0 && !isGroupClass ? 2 : 1)} />
           <div>
             <h2 className="text-base font-semibold text-foreground">Elige fecha y hora</h2>
-            <p className="text-xs text-muted-foreground">Selecciona el día</p>
+            <p className="text-xs text-muted-foreground">Solo aparecen horarios realmente disponibles</p>
           </div>
 
           <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
@@ -327,26 +354,44 @@ export function BookingFlow({
           {date && (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">Hora</p>
-              <div className="grid grid-cols-4 gap-2">
-                {TIME_SLOTS.map((t) => {
-                  const selected = time === t
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setTime(t)}
-                      className={cn(
-                        "rounded-lg border py-2 text-sm font-medium transition-colors",
-                        selected
-                          ? "border-foreground bg-foreground text-background"
-                          : "border-border bg-card text-foreground hover:border-foreground/40",
-                      )}
-                    >
-                      {t}
-                    </button>
-                  )
-                })}
-              </div>
+              {loadingSlots ? (
+                <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Buscando horarios...
+                </div>
+              ) : slots.length === 0 ? (
+                <Card className="p-4 text-center text-sm text-muted-foreground">
+                  No hay horarios disponibles este día. Prueba con otro.
+                </Card>
+              ) : (
+                <div className="grid grid-cols-4 gap-2">
+                  {slots.map((s) => {
+                    const localTime = new Date(s.slot_at).toLocaleTimeString("es-VE", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                      timeZone: "America/Caracas",
+                    })
+                    const selected = time === localTime
+                    return (
+                      <button
+                        key={s.slot_at}
+                        type="button"
+                        disabled={!s.available}
+                        onClick={() => setTime(localTime)}
+                        className={cn(
+                          "rounded-lg border py-2 text-sm font-medium transition-colors",
+                          !s.available && "cursor-not-allowed border-border bg-muted/40 text-muted-foreground line-through opacity-60",
+                          s.available && !selected && "border-border bg-card text-foreground hover:border-foreground/40",
+                          selected && "border-foreground bg-foreground text-background",
+                        )}
+                      >
+                        {localTime}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -368,7 +413,7 @@ export function BookingFlow({
                 <span className="text-muted-foreground">Servicio</span>
                 <span className="font-medium text-foreground">{service!.name}</span>
               </div>
-              {staffMember && (
+              {staffMember && !isGroupClass && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Profesional</span>
                   <span className="font-medium text-foreground">{staffMember.display_name}</span>
@@ -459,9 +504,7 @@ function Stepper({ current }: { current: Step }) {
             >
               {done ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : n}
             </div>
-            {idx < labels.length - 1 && (
-              <div className={cn("h-px flex-1", done ? "bg-accent" : "bg-border")} />
-            )}
+            {idx < labels.length - 1 && <div className={cn("h-px flex-1", done ? "bg-accent" : "bg-border")} />}
           </div>
         )
       })}

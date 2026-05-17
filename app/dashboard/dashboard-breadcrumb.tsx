@@ -18,6 +18,13 @@ const LABELS: Record<string, string> = {
   team: "Equipo",
   caja: "Caja",
   comisiones: "Comisiones",
+  clientes: "Clientes",
+  planes: "Planes",
+  membresias: "Membresías",
+  horarios: "Horarios",
+  notificaciones: "Notificaciones",
+  reportes: "Reportes",
+  auditoria: "Auditoría",
 }
 
 export function DashboardBreadcrumb({ tenantName }: { tenantName: string }) {

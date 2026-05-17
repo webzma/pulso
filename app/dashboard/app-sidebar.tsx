@@ -14,6 +14,13 @@ import {
   LogOut,
   Settings,
   Sparkles,
+  Contact,
+  BadgeCheck,
+  CalendarRange,
+  Bell,
+  Clock,
+  BarChart3,
+  History,
 } from "lucide-react"
 
 import {
@@ -28,6 +35,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,24 +47,44 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
-const PRIMARY = [
+type NavItem = {
+  href: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  exact?: boolean
+  badgeKind?: "queued"
+}
+
+const PRIMARY: readonly NavItem[] = [
   { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
   { href: "/dashboard/agenda", label: "Agenda", icon: CalendarClock },
+  { href: "/dashboard/notificaciones", label: "Notificaciones", icon: Bell, badgeKind: "queued" },
   { href: "/dashboard/caja", label: "Caja", icon: Wallet },
   { href: "/dashboard/comisiones", label: "Comisiones", icon: Percent },
+  { href: "/dashboard/reportes", label: "Reportes", icon: BarChart3 },
+]
+
+const PEOPLE = [
+  { href: "/dashboard/clientes", label: "Clientes", icon: Contact },
+  { href: "/dashboard/membresias", label: "Membresías", icon: BadgeCheck },
+  { href: "/dashboard/team", label: "Equipo", icon: Users },
 ] as const
 
 const SETUP = [
   { href: "/dashboard/services", label: "Servicios", icon: Sparkles },
-  { href: "/dashboard/team", label: "Equipo", icon: Users },
+  { href: "/dashboard/planes", label: "Planes", icon: CalendarRange },
+  { href: "/dashboard/horarios", label: "Horarios", icon: Clock },
+  { href: "/dashboard/auditoria", label: "Auditoría", icon: History },
 ] as const
 
 export function AppSidebar({
   tenant,
   email,
+  queuedNotifications,
 }: {
   tenant: { name: string; slug: string }
   email: string
+  queuedNotifications: number
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -96,9 +124,35 @@ export function AppSidebar({
           <SidebarGroupLabel>Operación</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {PRIMARY.map((item) => (
+              {PRIMARY.map((item) => {
+                const showBadge = item.badgeKind === "queued" && queuedNotifications > 0
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton asChild isActive={isActive(item.href, item.exact)} tooltip={item.label}>
+                      <Link href={item.href}>
+                        <item.icon />
+                        <span>{item.label}</span>
+                        {showBadge && (
+                          <Badge className="ml-auto h-5 min-w-5 justify-center px-1 font-mono text-[10px]">
+                            {queuedNotifications}
+                          </Badge>
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Personas</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {PEOPLE.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={isActive(item.href, item.exact)} tooltip={item.label}>
+                  <SidebarMenuButton asChild isActive={isActive(item.href)} tooltip={item.label}>
                     <Link href={item.href}>
                       <item.icon />
                       <span>{item.label}</span>

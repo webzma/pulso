@@ -25,7 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
-import { Plus, Trash2, Clock, Pencil, MoreHorizontal, Sparkles, PowerOff } from "lucide-react"
+import { Plus, Trash2, Clock, Pencil, MoreHorizontal, Sparkles, PowerOff, Users } from "lucide-react"
 import { formatUsd } from "@/lib/exchange-rate"
 
 type Service = {
@@ -34,6 +34,7 @@ type Service = {
   category: string | null
   duration_minutes: number
   price_usd: number
+  capacity: number
   active: boolean
   created_at: string
 }
@@ -166,6 +167,11 @@ export function ServicesManager({
                       <span className="inline-flex items-center gap-1 text-muted-foreground">
                         <Clock className="size-3.5" /> {s.duration_minutes} min
                       </span>
+                      {s.capacity > 1 && (
+                        <span className="inline-flex items-center gap-1 text-muted-foreground">
+                          <Users className="size-3.5" /> cupo {s.capacity}
+                        </span>
+                      )}
                       <span className="font-mono font-semibold text-foreground">{formatUsd(Number(s.price_usd))}</span>
                     </div>
                   </div>
@@ -264,6 +270,7 @@ function ServiceForm({
   const [category, setCategory] = useState(initial?.category ?? "")
   const [duration, setDuration] = useState(String(initial?.duration_minutes ?? 60))
   const [price, setPrice] = useState(String(initial?.price_usd ?? ""))
+  const [capacity, setCapacity] = useState(String(initial?.capacity ?? 1))
   const [active, setActive] = useState(initial?.active ?? true)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -279,6 +286,7 @@ function ServiceForm({
       category: category.trim() || null,
       duration_minutes: Number(duration),
       price_usd: Number(price),
+      capacity: Math.max(1, Number(capacity) || 1),
       active,
     }
     try {
@@ -338,21 +346,39 @@ function ServiceForm({
           />
         </div>
       </div>
-      <div className="grid gap-2">
-        <Label htmlFor="svc-price">Precio en USD</Label>
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-2">
+          <Label htmlFor="svc-price">Precio en USD</Label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+            <Input
+              id="svc-price"
+              type="number"
+              min={0}
+              step="0.01"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              required
+              className="pl-7 font-mono"
+              placeholder="0.00"
+            />
+          </div>
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="svc-cap">Cupos por horario</Label>
           <Input
-            id="svc-price"
+            id="svc-cap"
             type="number"
-            min={0}
-            step="0.01"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
+            min={1}
+            step={1}
+            value={capacity}
+            onChange={(e) => setCapacity(e.target.value)}
             required
-            className="pl-7 font-mono"
-            placeholder="0.00"
+            className="font-mono"
           />
+          <p className="text-[11px] text-muted-foreground">
+            1 = sesión personal · &gt;1 = clase grupal (spinning, crossfit, yoga)
+          </p>
         </div>
       </div>
       <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-3">

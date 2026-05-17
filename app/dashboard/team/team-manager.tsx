@@ -26,7 +26,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
-import { Plus, Pencil, Trash2, Crown, MoreHorizontal, PowerOff, Users } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Plus, Pencil, Trash2, Crown, MoreHorizontal, PowerOff, Users, Upload, X } from "lucide-react"
 
 type Member = {
   id: string
@@ -35,6 +36,7 @@ type Member = {
   commission_percentage: number
   active: boolean
   user_id: string | null
+  avatar_url: string | null
   created_at: string
 }
 
@@ -149,8 +151,11 @@ export function TeamManager({ tenantId, initialMembers }: { tenantId: string; in
                 }`}
               >
                 <CardContent className="flex items-center gap-3 p-4">
-                  <div className="relative flex size-11 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-foreground">
-                    {initials(m.display_name)}
+                  <div className="relative">
+                    <Avatar className="size-11">
+                      {m.avatar_url && <AvatarImage src={m.avatar_url} alt={m.display_name} />}
+                      <AvatarFallback className="text-sm font-semibold">{initials(m.display_name)}</AvatarFallback>
+                    </Avatar>
                     {m.role === "owner" && (
                       <span className="absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full bg-accent text-accent-foreground">
                         <Crown className="size-3" />
@@ -287,8 +292,57 @@ function MemberForm({
   const [role, setRole] = useState<"owner" | "admin" | "staff">(initial?.role ?? "staff")
   const [pct, setPct] = useState(String(initial?.commission_percentage ?? "40"))
   const [active, setActive] = useState(initial?.active ?? true)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(initial?.avatar_url ?? null)
+  const [uploading, setUploading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+
+  async function uploadAvatar(file: File) {
+    setErr(null)
+    if (!initial) {
+      setErr("Guarda el miembro primero, luego sube su foto.")
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErr("La imagen pesa más de 5 MB.")
+      return
+    }
+    setUploading(true)
+    const supabase = createClient()
+    const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase()
+    const path = `${tenantId}/${initial.id}.${ext}`
+    const { error: upErr } = await supabase.storage
+      .from("avatars")
+      .upload(path, file, { upsert: true, contentType: file.type, cacheControl: "3600" })
+    if (upErr) {
+      setUploading(false)
+      setErr(upErr.message)
+      return
+    }
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("avatars").getPublicUrl(path)
+    const cacheBust = `${publicUrl}?v=${Date.now()}`
+    const { error: updErr } = await supabase
+      .from("tenant_members")
+      .update({ avatar_url: cacheBust })
+      .eq("id", initial.id)
+    setUploading(false)
+    if (updErr) {
+      setErr(updErr.message)
+      return
+    }
+    setAvatarUrl(cacheBust)
+  }
+
+  async function removeAvatar() {
+    if (!initial) return
+    setUploading(true)
+    const supabase = createClient()
+    await supabase.from("tenant_members").update({ avatar_url: null }).eq("id", initial.id)
+    setAvatarUrl(null)
+    setUploading(false)
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -331,6 +385,44 @@ function MemberForm({
 
   return (
     <form onSubmit={submit} className="grid gap-4">
+      <div className="flex items-center gap-3">
+        <Avatar className="size-14">
+          {avatarUrl && <AvatarImage src={avatarUrl} alt={name} />}
+          <AvatarFallback className="text-base">{initials(name || "??")}</AvatarFallback>
+        </Avatar>
+        <div className="flex-1 space-y-1.5">
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Foto de perfil</Label>
+          <div className="flex flex-wrap gap-2">
+            <label className="inline-flex">
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) uploadAvatar(f)
+                  e.target.value = ""
+                }}
+                disabled={uploading || !initial}
+              />
+              <Button type="button" size="sm" variant="outline" disabled={uploading || !initial} asChild>
+                <span>
+                  <Upload />
+                  {uploading ? "Subiendo..." : avatarUrl ? "Cambiar" : "Subir"}
+                </span>
+              </Button>
+            </label>
+            {avatarUrl && (
+              <Button type="button" size="sm" variant="ghost" onClick={removeAvatar} disabled={uploading}>
+                <X />
+                Quitar
+              </Button>
+            )}
+          </div>
+          {!initial && <p className="text-[11px] text-muted-foreground">Disponible después de crear el miembro.</p>}
+        </div>
+      </div>
+
       <div className="grid gap-2">
         <Label htmlFor="m-name">Nombre visible</Label>
         <Input

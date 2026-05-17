@@ -38,11 +38,15 @@ import {
   MessageCircle,
   MoreVertical,
   CalendarDays,
+  Pencil,
+  Receipt,
 } from "lucide-react"
 import { formatUsd, usdToVef, vefToUsd } from "@/lib/exchange-rate"
 import { toWhatsappNumber } from "@/lib/phone"
+import { useSwipeable } from "@/hooks/use-swipeable"
 import { PageHeader } from "../_components/page-header"
 import { KpiCard } from "../_components/kpi-card"
+import { ViewToggle } from "./view-toggle"
 import { cn } from "@/lib/utils"
 
 type Appointment = {
@@ -56,6 +60,7 @@ type Appointment = {
   service_id: string
   staff_member_id: string | null
   notes: string | null
+  receipt_token: string
 }
 type Service = { id: string; name: string; duration_minutes: number; price_usd: number }
 type Staff = { id: string; display_name: string }
@@ -101,6 +106,7 @@ export function AgendaView({
   const [appts, setAppts] = useState<Appointment[]>(initialAppointments)
   const [paying, setPaying] = useState<Appointment | null>(null)
   const [creating, setCreating] = useState(false)
+  const [editing, setEditing] = useState<Appointment | null>(null)
 
   function shiftDate(delta: number) {
     const d = new Date(`${date}T12:00:00-04:00`)
@@ -144,6 +150,16 @@ export function AgendaView({
     router.refresh()
   }
 
+  function onEdited(updated: Appointment) {
+    const sameDay = updated.scheduled_at.slice(0, 10) === date
+    setAppts((p) => {
+      const next = sameDay ? p.map((x) => (x.id === updated.id ? updated : x)) : p.filter((x) => x.id !== updated.id)
+      return [...next].sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))
+    })
+    setEditing(null)
+    router.refresh()
+  }
+
   const dateLabel = useMemo(() => {
     const d = new Date(`${date}T12:00:00-04:00`)
     return d.toLocaleDateString("es-VE", {
@@ -183,10 +199,13 @@ export function AgendaView({
         title="Agenda"
         description="Confirma, cobra y completa las citas del día."
         actions={
-          <Button onClick={() => setCreating(true)}>
-            <CalendarPlus />
-            Nueva cita
-          </Button>
+          <div className="flex items-center gap-2">
+            <ViewToggle current="day" date={date} />
+            <Button onClick={() => setCreating(true)}>
+              <CalendarPlus />
+              Nueva cita
+            </Button>
+          </div>
         }
       />
 
@@ -252,6 +271,7 @@ export function AgendaView({
                     if (confirm("¿Cancelar esta cita?")) setStatus(a, "cancelled")
                   }}
                   onPay={() => setPaying(a)}
+                  onEdit={() => setEditing(a)}
                   onNoShow={() => setStatus(a, "no_show")}
                 />
               </li>
@@ -281,6 +301,17 @@ export function AgendaView({
           onCreated={onCreated}
         />
       )}
+
+      {editing && (
+        <EditAppointmentDialog
+          appt={editing}
+          services={services}
+          staff={staff}
+          rate={currentRate}
+          onClose={() => setEditing(null)}
+          onSaved={onEdited}
+        />
+      )}
     </div>
   )
 }
@@ -308,6 +339,7 @@ function AppointmentCard({
   onConfirm,
   onCancel,
   onPay,
+  onEdit,
   onNoShow,
 }: {
   appt: Appointment
@@ -316,6 +348,7 @@ function AppointmentCard({
   onConfirm: () => void
   onCancel: () => void
   onPay: () => void
+  onEdit: () => void
   onNoShow: () => void
 }) {
   const time = new Date(appt.scheduled_at).toLocaleTimeString("es-VE", {
@@ -325,7 +358,24 @@ function AppointmentCard({
     timeZone: "America/Caracas",
   })
   const finished = appt.status === "completed" || appt.status === "cancelled" || appt.status === "no_show"
+  const receiptUrl = typeof window !== "undefined" ? `${window.location.origin}/r/${appt.receipt_token}` : `/r/${appt.receipt_token}`
   const waUrl = `https://wa.me/${toWhatsappNumber(appt.client_phone)}?text=${encodeURIComponent(`Hola ${appt.client_name}, te confirmamos tu cita a las ${time}.`)}`
+  const waReceiptUrl = `https://wa.me/${toWhatsappNumber(appt.client_phone)}?text=${encodeURIComponent(`Hola ${appt.client_name}, aquí está tu comprobante: ${receiptUrl}`)}`
+
+  // Swipe: right = confirm/pay, left = cancel (only on actionable cards)
+  const canConfirm = appt.status === "pending"
+  const canPay = appt.status === "pending" || appt.status === "confirmed"
+  const swipe = useSwipeable({
+    threshold: 100,
+    disabled: finished,
+    onSwipeRight: () => {
+      if (canConfirm) onConfirm()
+      else if (canPay) onPay()
+    },
+    onSwipeLeft: () => {
+      if (confirm("¿Cancelar esta cita?")) onCancel()
+    },
+  })
 
   const accentColor =
     appt.status === "completed"
@@ -336,6 +386,10 @@ function AppointmentCard({
           ? "bg-amber-500"
           : "bg-muted-foreground/30"
 
+  const swipeProgress = Math.min(Math.abs(swipe.dragX) / swipe.threshold, 1)
+  const swipingRight = swipe.dragX > 0
+  const swipingLeft = swipe.dragX < 0
+
   return (
     <Card
       className={cn(
@@ -345,7 +399,45 @@ function AppointmentCard({
     >
       {/* Status accent bar */}
       <span className={cn("absolute inset-y-0 left-0 w-1", accentColor)} aria-hidden />
-      <CardContent className="grid gap-3 p-4 pl-5">
+
+      {/* Swipe-action backgrounds (mobile only, behind the card content) */}
+      {!finished && swipe.active && (
+        <>
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-y-0 left-0 flex w-1/2 items-center justify-start gap-2 px-5 text-sm font-medium uppercase tracking-wider transition-opacity",
+              "bg-accent text-accent-foreground",
+              swipingRight ? "opacity-100" : "opacity-0",
+            )}
+            style={{ opacity: swipingRight ? swipeProgress : 0 }}
+            aria-hidden
+          >
+            <Check className="size-4" />
+            {canConfirm ? "Confirmar" : "Cobrar"}
+          </div>
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-y-0 right-0 flex w-1/2 items-center justify-end gap-2 px-5 text-sm font-medium uppercase tracking-wider",
+              "bg-destructive text-destructive-foreground",
+            )}
+            style={{ opacity: swipingLeft ? swipeProgress : 0 }}
+            aria-hidden
+          >
+            Cancelar
+            <XIcon className="size-4" />
+          </div>
+        </>
+      )}
+
+      <CardContent
+        {...swipe.bind}
+        style={{
+          ...swipe.bind.style,
+          transform: swipe.active ? `translateX(${swipe.dragX}px)` : undefined,
+          transition: swipe.active ? "none" : "transform 200ms ease-out",
+        }}
+        className="relative grid gap-3 bg-card p-4 pl-5"
+      >
         <div className="flex items-start gap-4">
           <div className="flex w-16 shrink-0 flex-col items-center rounded-lg bg-secondary/60 px-2 py-2">
             <span className="font-mono text-lg font-semibold leading-none tabular-nums">{time}</span>
@@ -411,6 +503,10 @@ function AppointmentCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onEdit}>
+                  <Pencil className="mr-2 size-4" />
+                  Editar / reagendar
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={onNoShow}>
                   <XIcon className="mr-2 size-4" />
                   Marcar como no asistió
@@ -422,6 +518,23 @@ function AppointmentCard({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          </div>
+        )}
+
+        {appt.status === "completed" && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
+            <Button size="sm" variant="outline" asChild>
+              <a href={`/r/${appt.receipt_token}`} target="_blank" rel="noopener noreferrer">
+                <Receipt />
+                Ver comprobante
+              </a>
+            </Button>
+            <Button size="sm" variant="ghost" asChild>
+              <a href={waReceiptUrl} target="_blank" rel="noopener noreferrer">
+                <MessageCircle />
+                Enviar por WhatsApp
+              </a>
+            </Button>
           </div>
         )}
       </CardContent>
@@ -620,6 +733,214 @@ function PaymentDialog({
             {busy ? "Guardando..." : "Confirmar pago"}
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function EditAppointmentDialog({
+  appt,
+  services,
+  staff,
+  rate,
+  onClose,
+  onSaved,
+}: {
+  appt: Appointment
+  services: Service[]
+  staff: Staff[]
+  rate: number | null
+  onClose: () => void
+  onSaved: (a: Appointment) => void
+}) {
+  const initialLocal = useMemo(() => {
+    const d = new Date(appt.scheduled_at)
+    const parts = d.toLocaleString("en-CA", {
+      timeZone: "America/Caracas",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+    const [datePart, timePart] = parts.split(", ")
+    return { date: datePart, time: timePart.slice(0, 5) }
+  }, [appt.scheduled_at])
+
+  const [serviceId, setServiceId] = useState(appt.service_id)
+  const [staffId, setStaffId] = useState<string>(appt.staff_member_id ?? "")
+  const [date, setDate] = useState(initialLocal.date)
+  const [time, setTime] = useState(initialLocal.time)
+  const [name, setName] = useState(appt.client_name)
+  const [phone, setPhone] = useState(appt.client_phone)
+  const [price, setPrice] = useState(String(appt.price_usd))
+  const [duration, setDuration] = useState(String(appt.duration_minutes))
+  const [notes, setNotes] = useState(appt.notes ?? "")
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const [priceTouched, setPriceTouched] = useState(false)
+  const [durationTouched, setDurationTouched] = useState(false)
+
+  function changeService(id: string) {
+    setServiceId(id)
+    const svc = services.find((s) => s.id === id)
+    if (svc) {
+      if (!priceTouched) setPrice(String(svc.price_usd))
+      if (!durationTouched) setDuration(String(svc.duration_minutes))
+    }
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setErr(null)
+    setBusy(true)
+    const supabase = createClient()
+    const scheduled_at = `${date}T${time}:00-04:00`
+    const priceNum = Number(price)
+    try {
+      const { data, error } = await supabase
+        .from("appointments")
+        .update({
+          service_id: serviceId,
+          staff_member_id: staffId || null,
+          client_name: name.trim(),
+          client_phone: phone.trim(),
+          scheduled_at,
+          duration_minutes: Number(duration),
+          price_usd: priceNum,
+          rate_vef_snapshot: rate,
+          price_vef_snapshot: rate ? usdToVef(priceNum, rate) : null,
+          notes: notes.trim() || null,
+        })
+        .eq("id", appt.id)
+        .select()
+        .single()
+      if (error) throw error
+      onSaved(data as Appointment)
+    } catch (e: any) {
+      setErr(e?.message ?? "No se pudo guardar")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Editar / reagendar</DialogTitle>
+          <DialogDescription>
+            Cambia hora, servicio o profesional. Si la cita ya fue cobrada, mejor crea una nueva.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label>Servicio</Label>
+            <Select value={serviceId} onValueChange={changeService}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {services.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name} — {formatUsd(Number(s.price_usd))}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="ed-date">Fecha</Label>
+              <Input id="ed-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="ed-time">Hora</Label>
+              <Input id="ed-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="ed-dur">Duración (min)</Label>
+              <Input
+                id="ed-dur"
+                type="number"
+                min={5}
+                step={5}
+                value={duration}
+                onChange={(e) => {
+                  setDuration(e.target.value)
+                  setDurationTouched(true)
+                }}
+                required
+                className="font-mono"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="ed-price">Precio USD</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                <Input
+                  id="ed-price"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={price}
+                  onChange={(e) => {
+                    setPrice(e.target.value)
+                    setPriceTouched(true)
+                  }}
+                  required
+                  className="pl-7 font-mono"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Entrenador</Label>
+            <Select value={staffId || "none"} onValueChange={(v) => setStaffId(v === "none" ? "" : v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sin asignar</SelectItem>
+                {staff.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.display_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="ed-name">Cliente</Label>
+              <Input id="ed-name" value={name} onChange={(e) => setName(e.target.value)} required />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="ed-phone">Teléfono</Label>
+              <Input id="ed-phone" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+            </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="ed-notes">Notas</Label>
+            <Input id="ed-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Opcional" />
+          </div>
+          {err && (
+            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {err}
+            </p>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" type="button" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={busy}>
+              {busy ? "Guardando..." : "Guardar cambios"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )
